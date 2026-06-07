@@ -719,9 +719,27 @@ async function init() {
     }
   } catch (err) {
     document.getElementById('app').innerHTML = `
-      <div class="empty-state" style="padding-top:80px">
-        <div class="empty-icon">⚠️</div>
-        <div class="empty-text">サーバーに接続できませんでした。<br>python run.py でサーバーを起動してください。</div>
+      <div class="screen" style="padding-top:40px">
+        <div class="onboard-header">
+          <div class="onboard-icon">🌿</div>
+          <div class="onboard-title">体調の隠れ相関発見ノート</div>
+        </div>
+        <div class="card mt-12">
+          <div class="onboard-body">1日10秒の記録から、体調の不調と生活習慣の隠れた関連を自動で発見するツールです。\n\n症状（頭痛・疲労感など）と要因（睡眠・食事など）を毎日記録するだけで、統計的な相関を自動分析します。</div>
+        </div>
+        <div class="notice mt-12">
+          このページはデモ表示です。<br>
+          実際に使用するにはバックエンドサーバーが必要です。<br><br>
+          <strong>ローカルで起動：</strong><br>
+          git clone して <code style="background:#fff3;padding:2px 6px;border-radius:4px">python run.py</code> を実行してください。
+        </div>
+        <div class="card mt-12">
+          <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.7">
+            本ツールは医療機器でも診断ツールでもありません。<br>
+            気になる症状は医療機関にご相談ください。<br><br>
+            体調の隠れ相関発見ノート v0.1
+          </div>
+        </div>
       </div>
     `;
     return;
