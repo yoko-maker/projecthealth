@@ -5,6 +5,55 @@
 const MAX_METRICS = 6;
 const DISCLAIMER  = '※これは関連であって、原因とは限りません。';
 
+const PREFECTURES = [
+  {name:'北海道',lat:43.06,lon:141.35},{name:'青森県',lat:40.82,lon:140.74},
+  {name:'岩手県',lat:39.70,lon:141.15},{name:'宮城県',lat:38.27,lon:140.87},
+  {name:'秋田県',lat:39.72,lon:140.10},{name:'山形県',lat:38.24,lon:140.36},
+  {name:'福島県',lat:37.75,lon:140.47},{name:'茨城県',lat:36.34,lon:140.45},
+  {name:'栃木県',lat:36.57,lon:139.88},{name:'群馬県',lat:36.39,lon:139.06},
+  {name:'埼玉県',lat:35.86,lon:139.65},{name:'千葉県',lat:35.61,lon:140.12},
+  {name:'東京都',lat:35.69,lon:139.69},{name:'神奈川県',lat:35.45,lon:139.64},
+  {name:'新潟県',lat:37.90,lon:139.02},{name:'富山県',lat:36.70,lon:137.21},
+  {name:'石川県',lat:36.59,lon:136.63},{name:'福井県',lat:36.07,lon:136.22},
+  {name:'山梨県',lat:35.66,lon:138.57},{name:'長野県',lat:36.65,lon:138.18},
+  {name:'岐阜県',lat:35.39,lon:136.72},{name:'静岡県',lat:34.98,lon:138.38},
+  {name:'愛知県',lat:35.18,lon:136.91},{name:'三重県',lat:34.73,lon:136.51},
+  {name:'滋賀県',lat:35.00,lon:135.87},{name:'京都府',lat:35.02,lon:135.76},
+  {name:'大阪府',lat:34.69,lon:135.50},{name:'兵庫県',lat:34.69,lon:135.20},
+  {name:'奈良県',lat:34.69,lon:135.83},{name:'和歌山県',lat:34.23,lon:135.17},
+  {name:'鳥取県',lat:35.50,lon:134.24},{name:'島根県',lat:35.47,lon:133.06},
+  {name:'岡山県',lat:34.66,lon:133.93},{name:'広島県',lat:34.40,lon:132.46},
+  {name:'山口県',lat:34.19,lon:131.47},{name:'徳島県',lat:34.07,lon:134.56},
+  {name:'香川県',lat:34.34,lon:134.04},{name:'愛媛県',lat:33.84,lon:132.77},
+  {name:'高知県',lat:33.56,lon:133.53},{name:'福岡県',lat:33.61,lon:130.42},
+  {name:'佐賀県',lat:33.25,lon:130.30},{name:'長崎県',lat:32.74,lon:129.87},
+  {name:'熊本県',lat:32.79,lon:130.74},{name:'大分県',lat:33.24,lon:131.61},
+  {name:'宮崎県',lat:31.91,lon:131.42},{name:'鹿児島県',lat:31.56,lon:130.56},
+  {name:'沖縄県',lat:26.21,lon:127.68},
+];
+
+const PREF_ADMIN1 = {
+  '北海道':'Hokkaido','青森県':'Aomori','岩手県':'Iwate','宮城県':'Miyagi',
+  '秋田県':'Akita','山形県':'Yamagata','福島県':'Fukushima','茨城県':'Ibaraki',
+  '栃木県':'Tochigi','群馬県':'Gunma','埼玉県':'Saitama','千葉県':'Chiba',
+  '東京都':'Tokyo','神奈川県':'Kanagawa','新潟県':'Niigata','富山県':'Toyama',
+  '石川県':'Ishikawa','福井県':'Fukui','山梨県':'Yamanashi','長野県':'Nagano',
+  '岐阜県':'Gifu','静岡県':'Shizuoka','愛知県':'Aichi','三重県':'Mie',
+  '滋賀県':'Shiga','京都府':'Kyoto','大阪府':'Osaka','兵庫県':'Hyogo',
+  '奈良県':'Nara','和歌山県':'Wakayama','鳥取県':'Tottori','島根県':'Shimane',
+  '岡山県':'Okayama','広島県':'Hiroshima','山口県':'Yamaguchi','徳島県':'Tokushima',
+  '香川県':'Kagawa','愛媛県':'Ehime','高知県':'Kochi','福岡県':'Fukuoka',
+  '佐賀県':'Saga','長崎県':'Nagasaki','熊本県':'Kumamoto','大分県':'Oita',
+  '宮崎県':'Miyazaki','鹿児島県':'Kagoshima','沖縄県':'Okinawa',
+};
+
+const WEATHER_FACTORS = [
+  {key:'auto_pressure',    name:'気圧',   dtype:'continuous'},
+  {key:'auto_temperature', name:'気温',   dtype:'continuous'},
+  {key:'auto_humidity',    name:'湿度',   dtype:'continuous'},
+  {key:'auto_precipitation',name:'降水量',dtype:'continuous'},
+];
+
 const ONBOARDING_TEXT =
   "このツールについて\n\n" +
   "● 本ツールは医療機器でも診断ツールでもなく、医療の代替にはなりません。\n" +
@@ -141,8 +190,101 @@ const db = {
     return [...exps].reverse();
   },
   addExperiment(exp) { this._save(KEYS.experiments, [...this.getExperimentsRaw(), exp]); },
+
+  getDatesWithWeather() {
+    return this._load(KEYS.autoFactors, []).filter(a => a.pressure != null).length;
+  },
+  getDatesNeedingWeather() {
+    return this._load(KEYS.autoFactors, [])
+      .filter(a => a.pressure == null)
+      .map(a => a.date);
+  },
+  saveWeather(weatherMap) {
+    const afs = this._load(KEYS.autoFactors, []);
+    for (const [date, w] of Object.entries(weatherMap)) {
+      const idx = afs.findIndex(a => a.date === date);
+      if (idx >= 0) Object.assign(afs[idx], w);
+      else { const j=new Date(date).getDay(); afs.push({date,weekday:j===0?6:j-1,...w}); }
+    }
+    this._save(KEYS.autoFactors, afs);
+  },
+
   deleteAll() { Object.values(KEYS).forEach(k => localStorage.removeItem(k)); },
 };
+
+// ── 気象データ取得 ────────────────────────────────────────────────────────────
+
+async function fetchWeatherForDates(lat, lon, dates) {
+  if (!dates.length) return {};
+  const sorted = [...dates].sort();
+  const start = sorted[0], end = sorted[sorted.length - 1];
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 88);
+  const base = start < cutoff.toISOString().slice(0,10)
+    ? 'https://archive-api.open-meteo.com/v1/archive'
+    : 'https://api.open-meteo.com/v1/forecast';
+  const url = `${base}?latitude=${lat}&longitude=${lon}` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum` +
+    `&hourly=surface_pressure,relative_humidity_2m` +
+    `&timezone=Asia%2FTokyo&start_date=${start}&end_date=${end}`;
+  try {
+    const r = await fetch(url); if (!r.ok) return {};
+    const data = await r.json();
+    const results = {};
+    for (let i = 0; i < (data.daily?.time||[]).length; i++) {
+      const date = data.daily.time[i];
+      if (!dates.includes(date)) continue;
+      const tMax = data.daily.temperature_2m_max?.[i];
+      const tMin = data.daily.temperature_2m_min?.[i];
+      const noonIdx = (data.hourly?.time||[]).findIndex(t => t===`${date}T12:00`);
+      results[date] = {
+        temperature: (tMax!=null&&tMin!=null) ? Math.round((tMax+tMin)/2*10)/10 : null,
+        precipitation: data.daily.precipitation_sum?.[i] ?? null,
+        pressure: noonIdx>=0 ? Math.round((data.hourly.surface_pressure[noonIdx]||0)*10)/10 : null,
+        humidity: noonIdx>=0 ? Math.round(data.hourly.relative_humidity_2m[noonIdx]||0) : null,
+      };
+    }
+    return results;
+  } catch { return {}; }
+}
+
+function debounce(fn, ms) {
+  let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a),ms); };
+}
+
+async function searchCities(query, prefName) {
+  if (!query) return [];
+  const admin1 = PREF_ADMIN1[prefName];
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=ja&countryCode=JP`;
+  try {
+    const r = await fetch(url); if (!r.ok) return [];
+    const data = await r.json();
+    return (data.results||[])
+      .filter(c => !admin1 || c.admin1===admin1)
+      .slice(0, 5)
+      .map(c => ({name:c.name, lat:c.latitude, lon:c.longitude}));
+  } catch { return []; }
+}
+
+async function backfillWeather() {
+  const loc = db.getSettings().location;
+  if (!loc) return;
+  const dates = db.getDatesNeedingWeather();
+  if (!dates.length) return;
+  const weather = await fetchWeatherForDates(loc.lat, loc.lon, dates);
+  if (Object.keys(weather).length) db.saveWeather(weather);
+}
+
+async function handleCitySearch(e) {
+  const query = e.target.value.trim();
+  const prefName = state.settings.location?.pref;
+  if (!query || !prefName) {
+    state.citySearchResults = [];
+    render();
+    return;
+  }
+  state.citySearchResults = await searchCities(query, prefName);
+  render();
+}
 
 // ── 統計関数 (correlate.py 移植) ─────────────────────────────────────────────
 
@@ -234,7 +376,14 @@ function runFullScan(){
 
   const daily={};
   for(const e of entries){if(!daily[e.date])daily[e.date]={};daily[e.date][`m_${e.metric_id}`]=e.value;}
-  for(const a of db._load(KEYS.autoFactors,[])){if(!daily[a.date])daily[a.date]={};daily[a.date]['auto_weekday']=a.weekday;}
+  for(const a of db._load(KEYS.autoFactors,[])){
+    if(!daily[a.date])daily[a.date]={};
+    daily[a.date]['auto_weekday']=a.weekday;
+    if(a.pressure!=null)    daily[a.date]['auto_pressure']=a.pressure;
+    if(a.temperature!=null) daily[a.date]['auto_temperature']=a.temperature;
+    if(a.humidity!=null)    daily[a.date]['auto_humidity']=a.humidity;
+    if(a.precipitation!=null)daily[a.date]['auto_precipitation']=a.precipitation;
+  }
   const dl=Object.keys(daily).sort().map(d=>daily[d]);
 
   const results=[];
@@ -246,6 +395,10 @@ function runFullScan(){
     }
     const r=_scanPair(dl,sk,'auto_weekday',sym.dtype,'continuous',cfg);
     if(r)results.push({symptom_id:sym.id,symptom_name:sym.name,factor_ref:'auto_weekday',factor_name:'曜日',factor_dtype:'continuous',sym_dtype:sym.dtype,...r});
+    for(const wf of WEATHER_FACTORS){
+      const wr=_scanPair(dl,sk,wf.key,sym.dtype,wf.dtype,cfg);
+      if(wr)results.push({symptom_id:sym.id,symptom_name:sym.name,factor_ref:wf.key,factor_name:wf.name,factor_dtype:wf.dtype,sym_dtype:sym.dtype,...wr});
+    }
   }
   results.sort((a,b)=>Math.abs(b.effect)-Math.abs(a.effect));
   const top=results.slice(0,2);
@@ -293,8 +446,13 @@ function checkSevereSymptoms(metricId){
   return rows.length>=7&&rows.every(r=>r.value===1);
 }
 
+const AUTO_FACTOR_NAMES = {
+  auto_weekday:'曜日', auto_pressure:'気圧',
+  auto_temperature:'気温', auto_humidity:'湿度', auto_precipitation:'降水量',
+};
+
 function getFactorName(factorRef){
-  if(factorRef==='auto_weekday')return '曜日';
+  if(AUTO_FACTOR_NAMES[factorRef]) return AUTO_FACTOR_NAMES[factorRef];
   const m=db.getMetrics().find(m=>String(m.id)===String(factorRef));
   return m?m.name:factorRef;
 }
@@ -310,6 +468,7 @@ const state = {
   insights: [],
   experiments: [],
   newMetric: { name:'', role:'symptom', dtype:'binary' },
+  citySearchResults: [],
 };
 
 // ── レンダリング ────────────────────────────────────────────────────────────
@@ -616,6 +775,41 @@ function renderSettings() {
       </div>
 
       <div class="card mt-12">
+        <div class="screen-title" style="font-size:0.9rem;margin-bottom:10px">気象データ（自動要因）</div>
+        <p class="text-muted" style="font-size:0.82rem;line-height:1.6;margin-bottom:10px">
+          地点を設定すると、気圧・気温・湿度・降水量を自動取得して相関分析に加えます。
+        </p>
+        <div class="form-group">
+          <label class="form-label">都道府県</label>
+          <select class="form-select" data-action="set-location">
+            <option value="">-- 設定しない --</option>
+            ${PREFECTURES.map(p=>`<option value="${p.name}" ${s.location?.pref===p.name?'selected':''}>${p.name}</option>`).join('')}
+          </select>
+        </div>
+        ${s.location?.pref ? `
+          <div class="form-group">
+            <label class="form-label">市区町村（任意・より正確な気象データ）</label>
+            <input class="form-input" id="city-search" type="text" autocomplete="off"
+              placeholder="例: 新宿区、横浜市" value="${escHtml(s.location.city||'')}">
+            ${state.citySearchResults.length ? `
+              <div style="border:1px solid var(--border);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--card)">
+                ${state.citySearchResults.map(c=>`
+                  <button style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:1px solid var(--border);background:none;font-size:0.95rem;cursor:pointer"
+                          data-action="select-city" data-name="${escHtml(c.name)}" data-lat="${c.lat}" data-lon="${c.lon}">
+                    ${escHtml(c.name)}
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+        ${s.location ? `<p class="text-muted" style="font-size:0.8rem;margin-top:4px">
+          現在の地点: ${escHtml(s.location.city ? s.location.city+'（'+s.location.pref+')' : s.location.pref)}
+          　気象データ取得済み: ${db.getDatesWithWeather()}日分
+        </p>` : ''}
+      </div>
+
+      <div class="card mt-12">
         <div class="screen-title" style="font-size:0.9rem;margin-bottom:10px">データ</div>
         <button class="btn btn-secondary btn-full btn-sm" data-action="export-data">データをエクスポート（JSON）</button>
         <div class="mt-8">
@@ -683,9 +877,14 @@ function reloadSettings() { state.settings = db.getSettings(); }
 // ── イベント処理 ──────────────────────────────────────────────────────────────
 
 function attachListeners() {
-  document.querySelectorAll('[data-action]').forEach(el => el.addEventListener('click', handleAction));
+  document.querySelectorAll('[data-action]').forEach(el => {
+    const evt = el.tagName === 'SELECT' ? 'change' : 'click';
+    el.addEventListener(evt, handleAction);
+  });
   document.querySelectorAll('input[type=range]').forEach(el => el.addEventListener('input', handleSlider));
   document.querySelectorAll('#new-metric-name').forEach(el => el.addEventListener('input', e => { state.newMetric.name = e.target.value; }));
+  const cityInput = document.getElementById('city-search');
+  if (cityInput) cityInput.addEventListener('input', debounce(handleCitySearch, 400));
 }
 
 async function handleAction(e) {
@@ -758,6 +957,11 @@ async function handleAction(e) {
         .map(([id, value]) => ({ metric_id:Number(id), value }));
       if (!entries.length) { alert('何か入力してください'); return; }
       db.saveEntries(todayStr(), entries);
+      const loc = db.getSettings().location;
+      if (loc) {
+        fetchWeatherForDates(loc.lat, loc.lon, [todayStr()])
+          .then(w => { if(Object.keys(w).length){ db.saveWeather(w); runFullScan(); loadInsights(); render(); } });
+      }
       runFullScan();
       loadRecord();
       loadInsights();
@@ -805,6 +1009,48 @@ async function handleAction(e) {
       reloadSettings();
       render();
       break;
+
+    case 'set-location': {
+      const name = el.value;
+      if (!name) {
+        db.updateSettings({ location: null });
+        state.citySearchResults = [];
+      } else {
+        const pref = PREFECTURES.find(p => p.name === name);
+        if (pref) {
+          db.updateSettings({ location: { pref: pref.name, city: null, lat: pref.lat, lon: pref.lon } });
+          showToast('気象データを取得中...');
+          backfillWeather().then(() => {
+            reloadSettings();
+            render();
+            showToast('気象データを取得しました');
+          });
+        }
+      }
+      state.citySearchResults = [];
+      reloadSettings();
+      render();
+      break;
+    }
+
+    case 'select-city': {
+      const loc = state.settings.location;
+      if (!loc) break;
+      const cityName = el.dataset.name;
+      const lat = parseFloat(el.dataset.lat);
+      const lon = parseFloat(el.dataset.lon);
+      db.updateSettings({ location: { pref: loc.pref, city: cityName, lat, lon } });
+      state.citySearchResults = [];
+      showToast('気象データを取得中...');
+      backfillWeather().then(() => {
+        reloadSettings();
+        render();
+        showToast('気象データを取得しました');
+      });
+      reloadSettings();
+      render();
+      break;
+    }
 
     case 'export-data': {
       const data = {
@@ -878,6 +1124,9 @@ function init() {
     loadInsights();
     loadExperiments();
     state.screen = 'record';
+    backfillWeather().then(() => {
+      reloadSettings();
+    });
   }
   render();
 }
