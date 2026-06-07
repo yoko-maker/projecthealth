@@ -1,8 +1,6 @@
-const CACHE = 'health-note-v3';
-const FILES = ['./', './app.js', './manifest.json'];
+const CACHE = 'health-note-v4';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
   self.skipWaiting();
 });
 
@@ -13,6 +11,18 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+// Network-first: always try network, cache as offline fallback
 self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  if (!e.request.url.startsWith('http')) return;
+  e.respondWith(
+    fetch(e.request)
+      .then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });

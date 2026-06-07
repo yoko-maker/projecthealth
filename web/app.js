@@ -253,13 +253,18 @@ function debounce(fn, ms) {
 
 async function searchCities(query, prefName) {
   if (!query) return [];
-  const admin1 = PREF_ADMIN1[prefName];
+  const admin1En = PREF_ADMIN1[prefName] || '';
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=ja&countryCode=JP`;
   try {
     const r = await fetch(url); if (!r.ok) return [];
     const data = await r.json();
     return (data.results||[])
-      .filter(c => !admin1 || c.admin1===admin1)
+      .filter(c => {
+        if (!prefName) return true;
+        const a1 = c.admin1 || '';
+        // language=ja returns Japanese admin1 ("東京都" etc.), fallback to English
+        return a1 === prefName || a1 === admin1En;
+      })
       .slice(0, 5)
       .map(c => ({name:c.name, lat:c.latitude, lon:c.longitude}));
   } catch { return []; }
@@ -812,6 +817,12 @@ function renderSettings() {
       </div>
 
       <div class="card mt-12">
+        <div class="screen-title" style="font-size:0.9rem;margin-bottom:10px">アプリ</div>
+        <button class="btn btn-secondary btn-full btn-sm" data-action="update-app">アップデートを確認・適用</button>
+        <p class="text-muted mt-4" style="font-size:0.78rem">キャッシュをクリアして最新版を取得します。データは消えません。</p>
+      </div>
+
+      <div class="card mt-12">
         <div class="screen-title" style="font-size:0.9rem;margin-bottom:10px">データ</div>
         <button class="btn btn-secondary btn-full btn-sm" data-action="export-data">データをエクスポート（JSON）</button>
         <div class="mt-8">
@@ -1059,6 +1070,24 @@ async function handleAction(e) {
       });
       reloadSettings();
       render();
+      break;
+    }
+
+    case 'update-app': {
+      showToast('アップデートを確認中...');
+      try {
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg) await reg.update();
+        }
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+        showToast('最新版を取得します...');
+        setTimeout(() => location.reload(true), 800);
+      } catch {
+        showToast('再読み込みします...');
+        setTimeout(() => location.reload(true), 800);
+      }
       break;
     }
 
