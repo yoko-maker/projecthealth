@@ -1,7 +1,7 @@
 // Service Worker — オフラインキャッシュとローカル通知（仕様書 14章）
 
 const CACHE_NAME = 'health-note-v1';
-const CACHED_URLS = ['/', '/static/app.js'];
+const CACHED_URLS = ['./', './app.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
