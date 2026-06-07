@@ -1,0 +1,18 @@
+{
+  "name": "体調の隠れ相関発見ノート",
+  "short_name": "体調ノート",
+  "description": "1日10秒の記録から、不調の隠れた関連を発見するツール",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9f7",
+  "theme_color": "#4a7c59",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

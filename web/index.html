@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#4a7c59">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>体調の隠れ相関発見ノート</title>
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #4a7c59;
+      --primary-light: #e8f0eb;
+      --primary-dark: #355c43;
+      --text: #2d3748;
+      --text-muted: #718096;
+      --bg: #f7f9f7;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --danger: #c53030;
+      --danger-light: #fff5f5;
+      --notice-bg: #fefce8;
+      --notice-text: #744210;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #app {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── スクリーン共通 ── */
+    .screen {
+      flex: 1;
+      padding: 16px 16px 80px;
+      overflow-y: auto;
+    }
+
+    .screen-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+
+    /* ── カード ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ── ボタン ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { opacity: 0.75; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: var(--card); color: var(--primary); border: 2px solid var(--primary); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 8px 14px; font-size: 0.875rem; }
+
+    /* ── 注意文（SAFE-3: 同じ視認性） ── */
+    .notice {
+      background: var(--notice-bg);
+      color: var(--notice-text);
+      border-left: 4px solid #d97706;
+      padding: 12px 14px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+
+    /* ── 気づきカード ── */
+    .insight-card {
+      border-left: 4px solid var(--primary);
+    }
+    .insight-text { font-size: 1rem; line-height: 1.65; }
+    .insight-disclaimer {
+      font-size: 0.8rem;
+      color: var(--notice-text);
+      background: var(--notice-bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 10px;
+    }
+    .strength-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+    }
+    .strength-clear { background: #c6f6d5; color: #276749; }
+    .strength-mild  { background: var(--primary-light); color: var(--primary-dark); }
+
+    .insight-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    /* ── 記録フォーム ── */
+    .metric-row {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .metric-row:last-child { border-bottom: none; }
+    .metric-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+    .metric-role-badge {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 6px;
+    }
+
+    /* 二値ボタン */
+    .binary-btns { display: flex; gap: 8px; }
+    .binary-btn {
+      flex: 1;
+      padding: 14px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      background: var(--card);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .binary-btn.selected-yes { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); font-weight: 700; }
+    .binary-btn.selected-no  { border-color: var(--text-muted); background: #f1f5f9; color: var(--text-muted); font-weight: 700; }
+
+    /* スライダー */
+    .slider-wrap { display: flex; align-items: center; gap: 12px; }
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+    }
+    .slider-val { min-width: 28px; text-align: right; font-weight: 700; color: var(--primary); }
+
+    /* ── オンボーディング ── */
+    .onboard-header {
+      text-align: center;
+      padding: 24px 0 8px;
+    }
+    .onboard-icon { font-size: 3rem; }
+    .onboard-title { font-size: 1.3rem; font-weight: 700; margin-top: 8px; color: var(--primary); }
+    .onboard-body { line-height: 1.75; font-size: 0.9rem; white-space: pre-wrap; }
+
+    /* ── ボトムナビ ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 10px 0 14px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-btn.active { color: var(--primary); }
+    .nav-icon { font-size: 1.4rem; line-height: 1; }
+
+    /* ── トグル ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 0.95rem; }
+    .toggle-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .toggle {
+      position: relative;
+      width: 48px; height: 26px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: var(--primary); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(22px); }
+
+    /* ── 空状態 ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 16px;
+      color: var(--text-muted);
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty-text { font-size: 0.95rem; line-height: 1.65; }
+
+    /* ── ローディング ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100dvh;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* ── フォーム入力 ── */
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-muted); }
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      background: var(--card);
+      color: var(--text);
+    }
+    .form-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      background: var(--card);
+      color: var(--text);
+      appearance: none;
+    }
+
+    /* ── チップ（感度選択等） ── */
+    .chip-group { display: flex; gap: 8px; }
+    .chip {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 2px solid var(--border);
+      background: var(--card);
+      font-size: 0.875rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .chip.selected { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); font-weight: 600; }
+
+    /* ── 実験カード ── */
+    .experiment-card {}
+    .exp-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+    .exp-value { font-size: 0.95rem; line-height: 1.5; }
+    .exp-row { margin-bottom: 10px; }
+    .exp-conclusion {
+      background: var(--primary-light);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--primary-dark);
+      margin-top: 10px;
+    }
+
+    .divider { height: 1px; background: var(--border); margin: 16px 0; }
+    .text-muted { color: var(--text-muted); font-size: 0.875rem; }
+    .mt-8 { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .gap-8 { display: flex; flex-direction: column; gap: 8px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">読み込み中...</div>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

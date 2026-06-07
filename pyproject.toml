@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hidden-correlation-note"
+version = "0.1.0"
+description = "体調の隠れ相関発見ノート — 1日10秒の記録から不調の隠れた関連を発見するツール"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "httpx>=0.24.0"]
+
+[project.scripts]
+health-note = "app.main:start"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
