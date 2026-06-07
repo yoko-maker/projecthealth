@@ -276,6 +276,7 @@ async function backfillWeather() {
 
 async function handleCitySearch(e) {
   const query = e.target.value.trim();
+  state.cityQuery = e.target.value;
   const prefName = state.settings.location?.pref;
   if (!query || !prefName) {
     state.citySearchResults = [];
@@ -469,6 +470,7 @@ const state = {
   experiments: [],
   newMetric: { name:'', role:'symptom', dtype:'binary' },
   citySearchResults: [],
+  cityQuery: '',
 };
 
 // ── レンダリング ────────────────────────────────────────────────────────────
@@ -790,7 +792,7 @@ function renderSettings() {
           <div class="form-group">
             <label class="form-label">市区町村（任意・より正確な気象データ）</label>
             <input class="form-input" id="city-search" type="text" autocomplete="off"
-              placeholder="例: 新宿区、横浜市" value="${escHtml(s.location.city||'')}">
+              placeholder="例: 新宿区、横浜市" value="${escHtml(state.cityQuery || s.location.city||'')}">
             ${state.citySearchResults.length ? `
               <div style="border:1px solid var(--border);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--card)">
                 ${state.citySearchResults.map(c=>`
@@ -884,7 +886,13 @@ function attachListeners() {
   document.querySelectorAll('input[type=range]').forEach(el => el.addEventListener('input', handleSlider));
   document.querySelectorAll('#new-metric-name').forEach(el => el.addEventListener('input', e => { state.newMetric.name = e.target.value; }));
   const cityInput = document.getElementById('city-search');
-  if (cityInput) cityInput.addEventListener('input', debounce(handleCitySearch, 400));
+  if (cityInput) {
+    cityInput.addEventListener('input', debounce(handleCitySearch, 400));
+    if (state.cityQuery && document.activeElement !== cityInput) {
+      cityInput.focus();
+      cityInput.setSelectionRange(cityInput.value.length, cityInput.value.length);
+    }
+  }
 }
 
 async function handleAction(e) {
@@ -1015,6 +1023,7 @@ async function handleAction(e) {
       if (!name) {
         db.updateSettings({ location: null });
         state.citySearchResults = [];
+        state.cityQuery = '';
       } else {
         const pref = PREFECTURES.find(p => p.name === name);
         if (pref) {
@@ -1041,6 +1050,7 @@ async function handleAction(e) {
       const lon = parseFloat(el.dataset.lon);
       db.updateSettings({ location: { pref: loc.pref, city: cityName, lat, lon } });
       state.citySearchResults = [];
+      state.cityQuery = '';
       showToast('気象データを取得中...');
       backfillWeather().then(() => {
         reloadSettings();
